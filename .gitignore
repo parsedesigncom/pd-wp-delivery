@@ -1,0 +1,35 @@
+
+# IDE-Dateien
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.project
+.settings/
+*.swp
+*.swo
+*~
+
+# Betriebssystem-Dateien
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node.js (falls verwendet)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Composer (falls verwendet)
+vendor/
+composer.lock
+
+# Build-Dateien
+*.log
+*.zip
+*.tar.gz
+
+# Temporäre Dateien
+*.tmp
+*.bak
+*.cache

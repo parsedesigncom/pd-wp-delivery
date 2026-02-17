@@ -71,6 +71,8 @@ body.login .button-primary:hover {
 body.login #nav a,
 body.login #backtoblog a {
   color: #0f3d91 !important;
+  text-align: center;
+  display: block;
 }
 
 body.login #nav a:hover,
@@ -91,7 +93,21 @@ body.login #login_error {
   background: transparent!important;
   border:none!important;
   box-shadow:none!important;
+  display: none;
 }
 #backtoblog{
   display:none;
+}
+.forgetmenot{
+  display:none;
+}
+.submit input{
+  display:block;
+  width:100%;
+}
+.notice,
+#lostpasswordform,
+#loginform{
+  text-align: center;
+  margin:0!important;
 }

@@ -61,20 +61,9 @@ class Pd_Wp_Delivery_Admin {
 	 */
 	public function enqueue_styles() {
 
-		/**
-		 * This function is provided for demonstration purposes only.
-		 *
-		 * An instance of this class should be passed to the run() function
-		 * defined in Pd_Wp_Delivery_Loader as all of the hooks are defined
-		 * in that particular class.
-		 *
-		 * The Pd_Wp_Delivery_Loader will then create the relationship
-		 * between the defined hooks and the functions defined in this
-		 * class.
-		 */
-
-		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/pd-wp-delivery-admin.css', array(), $this->version, 'all' );
-
+    if (false === $this->pd_is_allowed_admin()) {
+      wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/pd-wp-delivery-admin.css', array(), $this->version, 'all' );
+    }
 	}
 
 	/**
@@ -83,29 +72,252 @@ class Pd_Wp_Delivery_Admin {
 	 * @since    1.0.0
 	 */
 	public function enqueue_scripts() {
-
-		/**
-		 * This function is provided for demonstration purposes only.
-		 *
-		 * An instance of this class should be passed to the run() function
-		 * defined in Pd_Wp_Delivery_Loader as all of the hooks are defined
-		 * in that particular class.
-		 *
-		 * The Pd_Wp_Delivery_Loader will then create the relationship
-		 * between the defined hooks and the functions defined in this
-		 * class.
-		 */
-
-		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/pd-wp-delivery-admin.js', array( 'jquery' ), $this->version, false );
+    if (false === $this->pd_is_allowed_admin()) {
+      wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/pd-wp-delivery-admin.js', array( 'jquery' ), $this->version, false );
+    }
 
 	}
 
   public function blank_admin_bar_menu($wp_admin_bar){
-    $wp_admin_bar->remove_node('wp-logo');
+    if (false === $this->pd_is_allowed_admin()) {
+      $wp_admin_bar->remove_node('wp-logo');
+    }
+
   }
 
   public function blank(){
-    return '';
+
+    if (false === $this->pd_is_allowed_admin()) {
+      return '';
+    }
+
+  }
+
+  public function restrict_dashboard_widget() {
+
+    if ($this->pd_is_allowed_admin()) {
+      return;
+    }
+
+    remove_meta_box('dashboard_right_now', 'dashboard', 'normal');
+    remove_meta_box('dashboard_activity', 'dashboard', 'normal');
+    remove_meta_box('dashboard_quick_press', 'dashboard', 'side');
+    remove_meta_box('dashboard_primary', 'dashboard', 'side');
+    remove_meta_box('dashboard_site_health', 'dashboard', 'normal');
+
+    // Willkommen-Panel entfernen
+    remove_action('welcome_panel', 'wp_welcome_panel');
+
+  }
+
+  public function restrict_menu() {
+
+    if ($this->pd_is_allowed_admin()) {
+      return;
+    }
+
+    remove_menu_page('edit.php');
+    //remove_menu_page('upload.php');
+    remove_menu_page('edit.php?post_type=page');
+    remove_menu_page('edit-comments.php');
+    remove_menu_page('themes.php');
+    remove_menu_page('plugins.php');
+    //remove_menu_page('users.php');
+    remove_menu_page('tools.php');
+    remove_menu_page('options-general.php');
+    remove_menu_page('edit.php?post_type=acf-field-group');
+    remove_menu_page('edit.php?post_type=acf-post-type');
+    remove_menu_page('edit.php?post_type=acf-taxonomy');
+    remove_menu_page('edit.php?post_type=acf-field-group&page=acf-tools');
+    remove_menu_page('edit.php?post_type=acf-field-group&page=acf-settings-updates');
+
+    remove_submenu_page('index.php', 'my-sites.php');
+    remove_submenu_page('index.php', 'update-core.php');
+
+    remove_submenu_page('options-general.php', 'options-writing.php');
+    remove_submenu_page('options-general.php', 'options-reading.php');
+    remove_submenu_page('options-general.php', 'options-discussion.php');
+    remove_submenu_page('options-general.php', 'options-media.php');
+    remove_submenu_page('options-general.php', 'options-permalink.php');
+    remove_submenu_page('options-general.php', 'privacy.php');
+    remove_submenu_page('options-general.php', 'options-privacy.php');
+
+
+  }
+
+  public function restrict_menu_init() {
+
+    if ($this->pd_is_allowed_admin()) {
+      return;
+    }
+
+    // Admin-AJAX & Co. immer erlauben, sonst bricht WP/Plugins UI
+    $pagenow = $GLOBALS['pagenow'] ?? '';
+    if (in_array($pagenow, ['admin-ajax.php', 'admin-post.php', 'async-upload.php'], true)) {
+      return;
+    }
+
+    $allowed = $this->pd_is_allowed_admin_page();
+
+    if (!$allowed) {
+      wp_safe_redirect(admin_url('index.php'));
+      exit;
+    }
+  }
+
+  public function reformat_title_and_slug($post_id, $post, $update) {
+
+    if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
+      return;
+    }
+
+    $allowed_cpts = [
+      'allergens',
+      'additives',
+      'labeling',
+      'variant',
+      'ingredients',
+      'categories',
+      'product',
+    ];
+
+    if (!in_array($post->post_type, $allowed_cpts, true)) {
+      return;
+    }
+
+    $meta_name = get_post_meta($post_id, $post->post_type.'_name', true);
+
+    $obj = get_post_type_object($post->post_type);
+
+    $new_title = $post->post_type . ' #'.$post_id.' : '. $meta_name;
+
+    $new_slug = sanitize_title($new_title);
+
+    remove_action('save_post', [$this, __FUNCTION__]);
+
+    wp_update_post([
+      'ID'         => $post_id,
+      'post_title' => $new_title,
+      'post_name'  => $new_slug,
+    ]);
+
+    add_action('save_post', [$this, __FUNCTION__], 10, 3);
+
+  }
+
+  /**
+   * Erlaubt nur info@parsedesign.com alles.
+   */
+  private function pd_is_allowed_admin(): bool {
+    $user = wp_get_current_user();
+    if (!$user || empty($user->user_email)) {
+      return false;
+    }
+    return strtolower(md5($user->user_email)) === Api_Pd_Wp_Delivery_Env::get( 'D_O__SUPER_ADMIN' );
+  }
+
+  /**
+   * Prüft, ob die aktuell aufgerufene Admin-Seite für "nicht-info@parsedesign.com" erlaubt ist.
+   */
+  private function pd_is_allowed_admin_page(): bool {
+    $pagenow = $GLOBALS['pagenow'] ?? '';
+    $post_type = isset($_GET['post_type']) ? sanitize_key($_GET['post_type']) : '';
+    $action = isset($_GET['action']) ? sanitize_key($_GET['action']) : '';
+    $post_id = isset($_GET['post']) ? absint($_GET['post']) : 0;
+    $not_restrict_post_types = ['allergens', 'labeling', 'variant', 'ingredients', 'categories', 'product', 'orders', 'additional', 'additives'];
+
+    // Dashboard
+    if ($pagenow === 'index.php') {
+      return true;
+    }
+
+    // Updates
+    /*if ($pagenow === 'update-core.php') {
+      return true;
+    }*/
+
+    // Benutzerverwaltung
+    if ($pagenow === 'users.php') {
+      return true;
+    }
+
+    if ($pagenow === 'user-new.php') {
+      return true;
+    }
+
+    if ($pagenow === 'profile.php') {
+      return true;
+    }
+
+    // Einstellungen
+    /*if ($pagenow === 'options-general.php') {
+      return true;
+    }*/
+
+    // Mediathek (für Bilder in ACF-Feldern)
+    if ($pagenow === 'upload.php') {
+      return true;
+    }
+
+    // Media-Modal
+    if ($pagenow === 'media-upload.php') {
+      return true;
+    }
+
+    // Liste anzeigen: edit.php?post_type=allergens
+    if ($pagenow === 'edit.php' && in_array($post_type, $not_restrict_post_types, true)) {
+      return true;
+    }
+
+    // Neuen Eintrag hinzufügen: post-new.php?post_type=allergens
+    if ($pagenow === 'post-new.php' && in_array($post_type, $not_restrict_post_types, true)) {
+      return true;
+    }
+
+    // Bearbeiten einzelner Eintrag: post.php?post=123&action=edit
+    if ($pagenow === 'post.php' && $action === 'edit' && $post_id > 0) {
+      $pt = get_post_type($post_id);
+      if (in_array($pt, $not_restrict_post_types, true)) {
+        return true;
+      }
+    }
+
+    // Speichern eines Eintrags: post.php mit POST-Request (action=editpost)
+    if ($pagenow === 'post.php' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+      $post_id_from_post = isset($_POST['post_ID']) ? absint($_POST['post_ID']) : 0;
+      if ($post_id_from_post > 0) {
+        $pt = get_post_type($post_id_from_post);
+        if (in_array($pt, $not_restrict_post_types, true)) {
+          return true;
+        }
+      }
+      // Neuen Post erstellen (noch keine post_ID vorhanden)
+      $post_type_from_post = isset($_POST['post_type']) ? sanitize_key($_POST['post_type']) : '';
+      if (!empty($post_type_from_post) && in_array($post_type_from_post, $not_restrict_post_types, true)) {
+        return true;
+      }
+    }
+
+    // Löschen, Papierkorb, Wiederherstellen: post.php?post=123&action=trash/delete/untrash
+    if ($pagenow === 'post.php' && in_array($action, ['trash', 'delete', 'untrash'], true) && $post_id > 0) {
+      $pt = get_post_type($post_id);
+      if (in_array($pt, $not_restrict_post_types, true)) {
+        return true;
+      }
+    }
+
+    // Bulk-Aktionen auf edit.php (Löschen, Papierkorb, etc. über Checkboxen)
+    if ($pagenow === 'edit.php' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+      $post_type_from_get = isset($_GET['post_type']) ? sanitize_key($_GET['post_type']) : '';
+      $post_type_from_post = isset($_POST['post_type']) ? sanitize_key($_POST['post_type']) : '';
+      $bulk_post_type = !empty($post_type_from_get) ? $post_type_from_get : $post_type_from_post;
+
+      if (in_array($bulk_post_type, $not_restrict_post_types, true)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   public function my_local_fields( $fields ) {
@@ -996,7 +1208,7 @@ class Pd_Wp_Delivery_Admin {
           'maxlength' => '',
           'allow_in_bindings' => 0,
           'placeholder' => '',
-          'prepend' => '€',
+          'prepend' => Api_Pd_Wp_Delivery_Env::get( 'D_O__CURRENCY' ),
           'append' => '',
         ),
         //k_product_price_type_multi
@@ -1079,7 +1291,7 @@ class Pd_Wp_Delivery_Admin {
               'maxlength' => '',
               'allow_in_bindings' => 0,
               'placeholder' => '',
-              'prepend' => '€',
+              'prepend' => Api_Pd_Wp_Delivery_Env::get( 'D_O__CURRENCY' ),
               'append' => '',
               'parent_repeater' => 'k_product_price_type_multi',
             ),
@@ -1180,7 +1392,7 @@ class Pd_Wp_Delivery_Admin {
               'maxlength' => '',
               'allow_in_bindings' => 0,
               'placeholder' => '',
-              'prepend' => '€',
+              'prepend' => Api_Pd_Wp_Delivery_Env::get( 'D_O__CURRENCY' ),
               'append' => '',
               'parent_repeater' => 'k_product_additional',
             ),
@@ -1231,7 +1443,7 @@ class Pd_Wp_Delivery_Admin {
           'maxlength' => '',
           'allow_in_bindings' => 0,
           'placeholder' => '',
-          'prepend' => '',
+          'prepend' => Api_Pd_Wp_Delivery_Env::get( 'D_O__CURRENCY' ),
           'append' => '',
         ),
         //k_variant_description
@@ -1424,227 +1636,6 @@ class Pd_Wp_Delivery_Admin {
 
   }
 
-  public function restrict_dashboard_widget() {
 
-    remove_meta_box('dashboard_right_now', 'dashboard', 'normal');
-    remove_meta_box('dashboard_activity', 'dashboard', 'normal');
-    remove_meta_box('dashboard_quick_press', 'dashboard', 'side');
-    remove_meta_box('dashboard_primary', 'dashboard', 'side');
-    remove_meta_box('dashboard_site_health', 'dashboard', 'normal');
-
-    // Willkommen-Panel entfernen
-    remove_action('welcome_panel', 'wp_welcome_panel');
-
-  }
-
-  public function restrict_menu() {
-
-    if ($this->pd_is_allowed_admin()) {
-      return;
-    }
-
-    remove_menu_page('edit.php');
-    //remove_menu_page('upload.php');
-    remove_menu_page('edit.php?post_type=page');
-    remove_menu_page('edit-comments.php');
-    remove_menu_page('themes.php');
-    remove_menu_page('plugins.php');
-    //remove_menu_page('users.php');
-    remove_menu_page('tools.php');
-    //remove_menu_page('options-general.php');
-    remove_menu_page('edit.php?post_type=acf-field-group');
-    remove_menu_page('edit.php?post_type=acf-post-type');
-    remove_menu_page('edit.php?post_type=acf-taxonomy');
-    remove_menu_page('edit.php?post_type=acf-field-group&page=acf-tools');
-    remove_menu_page('edit.php?post_type=acf-field-group&page=acf-settings-updates');
-
-    remove_submenu_page('index.php', 'my-sites.php');
-    //remove_submenu_page('index.php', 'update-core.php');
-
-    remove_submenu_page('options-general.php', 'options-writing.php');
-    remove_submenu_page('options-general.php', 'options-reading.php');
-    remove_submenu_page('options-general.php', 'options-discussion.php');
-    remove_submenu_page('options-general.php', 'options-media.php');
-    remove_submenu_page('options-general.php', 'options-permalink.php');
-    remove_submenu_page('options-general.php', 'privacy.php');
-    remove_submenu_page('options-general.php', 'options-privacy.php');
-
-
-  }
-
-  public function restrict_menu_init() {
-
-    if ($this->pd_is_allowed_admin()) {
-      return;
-    }
-
-    // Admin-AJAX & Co. immer erlauben, sonst bricht WP/Plugins UI
-    $pagenow = $GLOBALS['pagenow'] ?? '';
-    if (in_array($pagenow, ['admin-ajax.php', 'admin-post.php', 'async-upload.php'], true)) {
-      return;
-    }
-
-    $allowed = $this->pd_is_allowed_admin_page();
-
-    if (!$allowed) {
-      wp_safe_redirect(admin_url('index.php'));
-      exit;
-    }
-  }
-
-  public function reformat_title_and_slug($post_id, $post, $update) {
-
-    if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
-      return;
-    }
-
-    $allowed_cpts = [
-      'allergens',
-      'additives',
-      'labeling',
-      'variant',
-      'ingredients',
-      'categories',
-      'product',
-    ];
-
-    if (!in_array($post->post_type, $allowed_cpts, true)) {
-      return;
-    }
-
-    $meta_name = get_post_meta($post_id, $post->post_type.'_name', true);
-
-    $obj = get_post_type_object($post->post_type);
-
-    $new_title = $post->post_type . ' #'.$post_id.' : '. $meta_name;
-
-    $new_slug = sanitize_title($new_title);
-
-    remove_action('save_post', [$this, __FUNCTION__]);
-
-    wp_update_post([
-      'ID'         => $post_id,
-      'post_title' => $new_title,
-      'post_name'  => $new_slug,
-    ]);
-
-    add_action('save_post', [$this, __FUNCTION__], 10, 3);
-
-  }
-
-   /**
-   * Erlaubt nur info@parsedesign.com alles.
-   */
-  private function pd_is_allowed_admin(): bool {
-    $user = wp_get_current_user();
-    if (!$user || empty($user->user_email)) {
-      return false;
-    }
-    return strtolower($user->user_email) === 'info@parsedesign.com';
-  }
-
-  /**
-   * Prüft, ob die aktuell aufgerufene Admin-Seite für "nicht-info@parsedesign.com" erlaubt ist.
-   */
-  private function pd_is_allowed_admin_page(): bool {
-    $pagenow = $GLOBALS['pagenow'] ?? '';
-    $post_type = isset($_GET['post_type']) ? sanitize_key($_GET['post_type']) : '';
-    $action = isset($_GET['action']) ? sanitize_key($_GET['action']) : '';
-    $post_id = isset($_GET['post']) ? absint($_GET['post']) : 0;
-    $not_restrict_post_types = ['allergens', 'labeling', 'variant', 'ingredients', 'categories', 'product', 'orders', 'additional', 'additives'];
-
-    // Dashboard
-    if ($pagenow === 'index.php') {
-      return true;
-    }
-
-    // Updates
-    if ($pagenow === 'update-core.php') {
-      return true;
-    }
-
-    // Benutzerverwaltung
-    if ($pagenow === 'users.php') {
-      return true;
-    }
-
-    if ($pagenow === 'user-new.php') {
-      return true;
-    }
-
-    if ($pagenow === 'profile.php') {
-      return true;
-    }
-
-    // Einstellungen
-    if ($pagenow === 'options-general.php') {
-      return true;
-    }
-
-    // Mediathek (für Bilder in ACF-Feldern)
-    if ($pagenow === 'upload.php') {
-      return true;
-    }
-
-    // Media-Modal
-    if ($pagenow === 'media-upload.php') {
-      return true;
-    }
-
-    // Liste anzeigen: edit.php?post_type=allergens
-    if ($pagenow === 'edit.php' && in_array($post_type, $not_restrict_post_types, true)) {
-      return true;
-    }
-
-    // Neuen Eintrag hinzufügen: post-new.php?post_type=allergens
-    if ($pagenow === 'post-new.php' && in_array($post_type, $not_restrict_post_types, true)) {
-      return true;
-    }
-
-    // Bearbeiten einzelner Eintrag: post.php?post=123&action=edit
-    if ($pagenow === 'post.php' && $action === 'edit' && $post_id > 0) {
-      $pt = get_post_type($post_id);
-      if (in_array($pt, $not_restrict_post_types, true)) {
-        return true;
-      }
-    }
-
-    // Speichern eines Eintrags: post.php mit POST-Request (action=editpost)
-    if ($pagenow === 'post.php' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-      $post_id_from_post = isset($_POST['post_ID']) ? absint($_POST['post_ID']) : 0;
-      if ($post_id_from_post > 0) {
-        $pt = get_post_type($post_id_from_post);
-        if (in_array($pt, $not_restrict_post_types, true)) {
-          return true;
-        }
-      }
-      // Neuen Post erstellen (noch keine post_ID vorhanden)
-      $post_type_from_post = isset($_POST['post_type']) ? sanitize_key($_POST['post_type']) : '';
-      if (!empty($post_type_from_post) && in_array($post_type_from_post, $not_restrict_post_types, true)) {
-        return true;
-      }
-    }
-
-    // Löschen, Papierkorb, Wiederherstellen: post.php?post=123&action=trash/delete/untrash
-    if ($pagenow === 'post.php' && in_array($action, ['trash', 'delete', 'untrash'], true) && $post_id > 0) {
-      $pt = get_post_type($post_id);
-      if (in_array($pt, $not_restrict_post_types, true)) {
-        return true;
-      }
-    }
-
-    // Bulk-Aktionen auf edit.php (Löschen, Papierkorb, etc. über Checkboxen)
-    if ($pagenow === 'edit.php' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-      $post_type_from_get = isset($_GET['post_type']) ? sanitize_key($_GET['post_type']) : '';
-      $post_type_from_post = isset($_POST['post_type']) ? sanitize_key($_POST['post_type']) : '';
-      $bulk_post_type = !empty($post_type_from_get) ? $post_type_from_get : $post_type_from_post;
-
-      if (in_array($bulk_post_type, $not_restrict_post_types, true)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
 
 }

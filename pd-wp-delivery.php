@@ -38,6 +38,11 @@ if ( ! defined( 'WPINC' ) ) {
 define( 'PD_WP_DELIVERY_VERSION', '1.0.0' );
 
 /**
+ * Load the Env class early
+ */
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-pd-wp-delivery-env.php';
+
+/**
  * The code that runs during plugin activation.
  * This action is documented in includes/class-pd-wp-delivery-activator.php
  */

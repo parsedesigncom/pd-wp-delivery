@@ -1,17 +1,21 @@
-
 # IDE-Dateien
 .idea/
+*.iml
 .vscode/
 *.sublime-project
 *.sublime-workspace
 .project
 .settings/
-*.swp
-*.swo
-*~
+.buildpath
+*.code-workspace
 
 # Betriebssystem-Dateien
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 desktop.ini
 
@@ -19,17 +23,39 @@ desktop.ini
 node_modules/
 npm-debug.log
 yarn-error.log
+package-lock.json
+yarn.lock
 
 # Composer (falls verwendet)
 vendor/
 composer.lock
 
 # Build-Dateien
-*.log
-*.zip
-*.tar.gz
+dist/
+build/
+*.map
 
-# Temporäre Dateien
+# Logs und temporäre Dateien
+*.log
 *.tmp
-*.bak
+*.temp
 *.cache
+.cache/
+
+# WordPress spezifisch
+wp-config.php
+wp-content/uploads/
+wp-content/upgrade/
+
+# Lokale Konfiguration
+.env
+.env.local
+*.local.php
+
+# Backup-Dateien
+*.bak
+*.backup
+*~
+
+# ZIP-Dateien (Plugin-Builds)
+*.zip

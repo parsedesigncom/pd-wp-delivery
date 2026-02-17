@@ -102,7 +102,7 @@ class Pd_Wp_Delivery_Public {
     return '';
   }
   public function my_login_headertext() {
-    return 'Parse Design';
+    return Api_Pd_Wp_Delivery_Env::get( 'D_O__PROJECT_NAME' );
   }
 
   public function my_template_redirect() {
@@ -144,6 +144,7 @@ class Pd_Wp_Delivery_Public {
 		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/pd-wp-delivery-public.js', array( 'jquery' ), $this->version, false );
 
 	}
+
 
   public function register_my_post_type() {
 

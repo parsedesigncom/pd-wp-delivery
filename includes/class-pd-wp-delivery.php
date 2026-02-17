@@ -156,6 +156,14 @@ class Pd_Wp_Delivery {
 
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
+		$this->loader->add_action( 'acf/include_fields', $plugin_admin, 'my_local_fields' );
+    $this->loader->add_action( 'wp_dashboard_setup', $plugin_admin, 'restrict_dashboard_widget' );
+    $this->loader->add_action( 'admin_bar_menu', $plugin_admin, 'blank_admin_bar_menu',999 );
+    $this->loader->add_filter( 'admin_footer_text', $plugin_admin, 'blank',999 );
+    $this->loader->add_filter( 'update_footer', $plugin_admin, 'blank',999 );
+    $this->loader->add_action( 'admin_menu', $plugin_admin, 'restrict_menu',999 );
+		$this->loader->add_action( 'admin_init', $plugin_admin, 'restrict_menu_init' );
+		$this->loader->add_action( 'save_post', $plugin_admin, 'reformat_title_and_slug', 10, 3 );
 
 	}
 
@@ -172,6 +180,12 @@ class Pd_Wp_Delivery {
 
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
+		$this->loader->add_action( 'login_enqueue_scripts', $plugin_public, 'login_enqueue_style' );
+		$this->loader->add_action( 'wp_logout', $plugin_public, 'my_wp_logout' );
+		$this->loader->add_filter( 'login_headerurl', $plugin_public, 'my_login_headerurl' );
+		$this->loader->add_filter( 'login_headertext', $plugin_public, 'my_login_headertext' );
+		$this->loader->add_filter( 'template_redirect', $plugin_public, 'my_template_redirect' );
+		$this->loader->add_action( 'init', $plugin_public, 'register_my_post_type' );
 
 	}
 
